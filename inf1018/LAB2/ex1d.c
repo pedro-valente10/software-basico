@@ -13,3 +13,5 @@ int main (void) {
   dump(&i, sizeof(i));
   return 0;
 }
+
+//a saída para char i = 'a' e char i = 97, resultam no mesmo conteúdo nesse endereço de memória porque eles são equivalentes
