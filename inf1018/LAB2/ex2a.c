@@ -16,3 +16,6 @@ int main (void) {
 }
 
 //*s indica que a repetição continuará enquanto o último caractere no array não for \0, ou seja, enquanto for verdadeiro
+//para cada iteração, *s - 0 isola o valor numérico associado a *s
+//o valor de 'a' é inicializado como '0' e o seu valor muda a cada iteração
+//preservando também os numeros anteriores que já foram encontrados nas operações anteriores
