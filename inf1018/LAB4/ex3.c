@@ -3,12 +3,6 @@
 #include <ctype.h>
 
 typedef unsigned packed_t;
-/* extrai byte indicado e retorna valor inteiro correspondente (32 bits) com sinal */
-int xbyte(packed_t word, int bytenum) 
-{
-    int shift = bytenum << 3; // bytenum * 8
-    return (int)(word << (24 - shift)) >> 24;
-}
 
 int string2num (char *s, int base) {
   int a = 0;
@@ -27,13 +21,18 @@ int string2num (char *s, int base) {
   return a;
 }
 
+int xbyte (packed_t word, int bytenum) {
+    int shift_left = (int)word << ((3 - bytenum) * 8);
+    return shift_left >> 24;
+}
+
 int main (int argc, char **argv) {
-  int x;
   if (argc != 3) {
     printf ("uso: %s <word (em hexadecimal)> <bytenum>\n", argv[0]);
     exit(1);
   }
-  x = xbyte(string2num(argv[1], 16), atoi(argv[2]));
+
+  int x = xbyte(string2num(argv[1], 16), atoi(argv[2]));
   printf ("%08x  %d\n", x, x);
   return 0;
 }
