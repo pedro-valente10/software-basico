@@ -9,8 +9,8 @@ int main() {
 */
 
 .data
-nums:  .int  10, -21, -30, 45
-Sf:  .string "%d\n"    # string de formato para printf
+nums:  .byte  10, -21, -30, 45    # Array de bytes
+Sf:    .string "%d\n"
 
 .text
 .globl  main
@@ -25,30 +25,34 @@ main:
   movq    %r12, -16(%rbp)
 /********************************************************/
 
-  movl  $0, %ebx  /* ebx = 0; */
-  movq  $nums, %r12  /* r12 = &nums */
+  movl  $0, %ebx          # i = 0
+  movq  $nums, %r12       # p = &nums
 
 L1:
-  cmpl  $4, %ebx  /* if (ebx == 4) ? */
-  je  L2          /* goto L2 */
+  cmpl  $4, %ebx          # i == 4?
+  je  L2
 
-  movl  (%r12), %eax    /* eax = *r12 */
+  # MODIFICAÇÃO 1: Pegar apenas 1 byte e estender o sinal para 32 bits
+  movsbl (%r12), %eax     # eax = (int) *p (byte -> long com sinal)
 
 /*************************************************************/
 /* este trecho imprime o valor de %eax (estraga %eax)  */
-  movq    $Sf, %rdi    /* primeiro parametro (ponteiro)*/
-  movl    %eax, %esi   /* segundo parametro  (inteiro) */
-  call  printf       /* chama a funcao da biblioteca */
+  movq    $Sf, %rdi       
+  movl    %eax, %esi      
+  call  printf            
 /*************************************************************/
 
-  addl  $1, %ebx  /* ebx += 1; */
-  addq  $4, %r12  /* r12 += 4; */
-  jmp  L1         /* goto L1; */
+  addl  $1, %ebx          # i++
+  
+  # MODIFICAÇÃO 2: Incrementar o ponteiro em apenas 1 byte
+  addq  $1, %r12          # p++ (próximo byte)
+  
+  jmp  L1
 
 L2:  
 /***************************************************************/
 /* mantenha este trecho aqui e nao mexa - finalizacao!!!!      */
-  movq  $0, %rax  /* rax = 0  (valor de retorno) */
+  movq  $0, %rax          
   movq  -8(%rbp), %rbx
   movq  -16(%rbp), %r12
   leave
