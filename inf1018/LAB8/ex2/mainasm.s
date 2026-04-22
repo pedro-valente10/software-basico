@@ -12,7 +12,7 @@
      movq  %rbx, -8(%rbp)     /* Usaremos %rbx para o contador 'i' */
      movq  %r12, -16(%rbp)    /* Usaremos %r12 para o ponteiro 'p' */
 
-  /* Inicialização */
+   /* coloque seu codigo aqui */
      movl  $0, %ebx           /* i = 0 */
      movq  $nums, %r12        /* p = nums */
 
@@ -25,7 +25,7 @@
      movl  $1, %esi           /* segundo arg: LIM (que é 1) */
      call  filtro             /* o retorno estará em %eax */
 
-     /* Prepara chamada: printf("%d\n", retorno_do_filtro) */
+     /* Prepara chamada: printf("%d\n", retorno do filtro) */
      movq  $s1, %rdi          /* primeiro arg: formato da string */
      movl  %eax, %esi         /* segundo arg: o resultado de filtro() */
      movl  $0, %eax           /* printf precisa de %eax zerado para varargs */
