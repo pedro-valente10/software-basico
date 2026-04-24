@@ -16,6 +16,7 @@
      movl  $0, %ebx           /* i = 0 */
      movq  $nums, %r12        /* p = nums */
 
+
   loop:
      cmpl  $5, %ebx           /* i < 5? */
      jge   fim_loop           /* se i >= 5, sai */
