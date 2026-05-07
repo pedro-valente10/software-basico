@@ -3,7 +3,7 @@
 }*/
 
 .text
-.global add
+.globl add
 
 add:
 movl %edi, %eax
