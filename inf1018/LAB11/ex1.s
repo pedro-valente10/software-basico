@@ -15,25 +15,21 @@
 .globl novonum
 
 novonum:
-    # --- Prólogo da Função ---
-    pushq   %rbp                # Salva o frame pointer antigo
-    movq    %rsp, %rbp          # Define o novo frame pointer
-    subq    $16, %rsp           # Aloca 16 bytes na pilha (minhalocal + alinhamento)
+    pushq   %rbp
+    movq    %rsp, %rbp
+    subq    $16, %rsp
 
-    # --- printf("numero: ") ---
-    leaq    entrada_str(%rip), %rdi # Carrega o endereço da string no 1º argumento
-    movl    $0, %eax            # printf espera 0 em AL para funções sem ponto flutuante
+    leaq    entrada_str(%rip), %rdi
+    movl    $0, %eax
     call    printf@PLT
 
-    # --- scanf("%d", &minhalocal) ---
-    leaq    -4(%rbp), %rsi      # Endereço de 'minhalocal' (localizada a -4 do RBP)
-    leaq    saida_str(%rip), %rdi # Primeiro argumento: string de entradao
-    movl    $0, %eax            # Limpa EAX para a chamada
+    leaq    -4(%rbp), %rsi
+    leaq    saida_str(%rip), %rdi
+    movl    $0, %eax
     call    __isoc99_scanf@PLT
 
-    # --- return minhalocal ---
-    movl    -4(%rbp), %eax      # Move o valor da variável para EAX (registrador de retorno)
+    movl    -4(%rbp), %eax
 
-    # --- Epílogo da Função ---
-    leave                       # Equivale a 'movq %rbp, %rsp' e 'popq %rbp'
+    movq %rbp, %rsp
+    popq %rbp
     ret
