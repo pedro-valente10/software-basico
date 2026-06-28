@@ -1,19 +1,16 @@
 import struct
+import math
 
 def float_to_binary(number):
-    integer_part = int(number)
-    fractional_part = number - integer_part
 
-    integer_binary = bin(integer_part)[2:]
+    scaled_number = int(round(number * (2**8)))
 
-    fractional_binary = ""
-    while fractional_part > 0:
-        fractional_part *= 2
-        bit = int(fractional_part)
-        fractional_binary += str(bit)
-        fractional_part -= bit
+    binary_16bit = bin(scaled_number & 0xFFFF)[2:].zfill(16)
 
-    return f"{integer_binary}.{fractional_binary}" if fractional_binary else integer_binary
+    integer_part = binary_16bit[:8]
+    fractional_part = binary_16bit[8:]
+
+    return f"{integer_part}.{fractional_part}"
 
 
 def float_to_hexadecimal(number):
@@ -26,6 +23,7 @@ float_number = -4.5
 
 hex_number = float_to_hexadecimal(float_number)
 binary_number = float_to_binary(float_number)
+
 
 print("numero em binario:")
 print(f'{binary_number}\n')
