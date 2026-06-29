@@ -11,9 +11,11 @@ struct X {
   double d;
   float  f;
   short  s;
-} x = {-4.5, 9.75, -11};
+} x;
+
 
 int main(void) {
+  x.d = -4.5;
   dump(&x, sizeof(x));
   return 0;
 }

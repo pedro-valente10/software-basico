@@ -1,4 +1,5 @@
-/*double foo3 (double *a, int n) {
+/*
+double foo3 (double *a, int n) {
   int i;
   double r = 0.0;
   for (i=0; i<n; i++) {
@@ -6,7 +7,8 @@
     a++;
   }
   return r;
-}*/
+}
+*/
 
 .text
 .global foo3
