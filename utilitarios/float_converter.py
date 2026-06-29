@@ -19,7 +19,7 @@ def float_to_hexadecimal(number):
 
 
 
-float_number = -4.5
+float_number = 62.625
 
 hex_number = float_to_hexadecimal(float_number)
 binary_number = float_to_binary(float_number)
