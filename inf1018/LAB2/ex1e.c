@@ -9,10 +9,9 @@ void dump (void *p, int n) {
 }
 
 int main (void) {
-  char p[] = "$";
+  char p[] = "7509";
   dump(p, sizeof(p));
   return 0;
-
 }
 
 //A em hexadecimal é equivalente a 41 na tabela ASCII
