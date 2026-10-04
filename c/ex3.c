@@ -14,8 +14,8 @@ bitFinal forem iguais a 1 e 3 respectivamente, a sáıda deverá ser 0x8E.
 
 unsigned char configuraBits(unsigned char byteConf, int bitInicial, int bitFinal)
 { 
-    for (int i = bitInicial; i &lt;= bitFinal; i++) { 
-    byteConf |= (1 &lt;&lt; i); 
+    for (int i = bitInicial; i <= bitFinal; i++) { 
+        byteConf |= (1 &lt;&lt; i); 
     } 
 return byteConf; 
 }
