@@ -13,7 +13,7 @@ int bitMaisADireita(unsigned int numero)
         return -1;
     }
 
-    for (int o = 0; i < 32; i++) {
+    for (int i = 0; i < 32; i++) {
         if ((numero >> i) & 1) {
             return i;
         }
