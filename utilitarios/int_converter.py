@@ -7,7 +7,7 @@ def int_to_hex_and_bin_8bit_twos_complement(x):
 
     return hex_value, bin_value
 
-x = 1024
+x = -2
 hex_val, bin_val = int_to_hex_and_bin_8bit_twos_complement(x)
 
 print("numero em binário:    \n", bin_val)

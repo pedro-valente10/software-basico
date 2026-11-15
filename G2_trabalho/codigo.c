@@ -1,119 +1,195 @@
+/*Luiz Renato Petry Wieser 2511660  */
+/* Pedro Henrique Padilha Valente 2510382 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#include "gera_codigo.h"
 
-// Tipo de ponteiro para a função gerada: recebe int, retorna int
-typedef int (*funcp)(int);
+#define MAX_VAR 4
+#define MAX_FUNCOES 50
 
-// -----------------------------------------------------------------------------
-// FUNÇÕES AUXILIARES DO COMPILADOR
-// -----------------------------------------------------------------------------
+/* FUNCAO ERRO */
+static void error(const char *msg, int line) {
+    fprintf(stderr, "erro: %s na linha %d\n", msg, line);
+    exit(EXIT_FAILURE);
+}
 
-static int calcula_offset(char tipo, int num) {
+/* CALCULA OFFSET NA PILHA */
+static int calcula_offset(char tipo, int num, int line) {
     if (tipo == 'p') {
-        return -24; // Parâmetro p0
+        if (num != 0) 
+            error("apenas p0 e suportado", line);
+        return -24; // p0 fica em -24(%rbp)
     }
-    return -4 * (num + 1); // Variáveis v0, v1, v2...
+    if (tipo == 'v') {
+        if (num < 0 || num > MAX_VAR) 
+            error("variavel local invalida", line);
+        return -4 * (num + 1); // v0=-4, v1=-8, v2=-12...
+    }
+    error("tipo de dado invalido", line);
+    return 0;
 }
 
-static void carrega_em_eax(unsigned char code[], int *pos, char tipo, int num) {
+/* CARREGA EM %eax */
+static void carrega_em_eax(unsigned char code[], int *pos, char tipo, int num, int line) {
     if (tipo == '$') {
-        code[(*pos)++] = 0xb8;
+        code[(*pos)++] = 0xb8; // movl $num, %eax
         *(int *)&code[*pos] = num;
         *pos += 4;
     } else {
-        code[(*pos)++] = 0x8b;
+        code[(*pos)++] = 0x8b; // movl offset(%rbp), %eax
         code[(*pos)++] = 0x45;
-        code[(*pos)++] = (unsigned char)calcula_offset(tipo, num);
+        code[(*pos)++] = (unsigned char)calcula_offset(tipo, num, line);
     }
 }
 
-static void carrega_em_edi(unsigned char code[], int *pos, char tipo, int num) {
+/* CARREGA EM %edi (PARAMETRO) */
+static void carrega_em_edi(unsigned char code[], int *pos, char tipo, int num, int line) {
     if (tipo == '$') {
-        code[(*pos)++] = 0xbf;
+        code[(*pos)++] = 0xbf; // movl $num, %edi
         *(int *)&code[*pos] = num;
         *pos += 4;
     } else {
-        code[(*pos)++] = 0x8b;
+        code[(*pos)++] = 0x8b; // movl offset(%rbp), %edi
         code[(*pos)++] = 0x7d;
-        code[(*pos)++] = (unsigned char)calcula_offset(tipo, num);
+        code[(*pos)++] = (unsigned char)calcula_offset(tipo, num, line);
     }
 }
 
-static void carrega_em_ecx(unsigned char code[], int *pos, char tipo, int num) {
+/* CARREGA EM %ecx (TESTE) */
+static void carrega_em_ecx(unsigned char code[], int *pos, char tipo, int num, int line) {
     if (tipo == '$') {
-        code[(*pos)++] = 0xb9;
+        code[(*pos)++] = 0xb9; // movl $num, %ecx
         *(int *)&code[*pos] = num;
         *pos += 4;
     } else {
-        code[(*pos)++] = 0x8b;
+        code[(*pos)++] = 0x8b; // movl offset(%rbp), %ecx
         code[(*pos)++] = 0x4d;
-        code[(*pos)++] = (unsigned char)calcula_offset(tipo, num);
+        code[(*pos)++] = (unsigned char)calcula_offset(tipo, num, line);
     }
 }
 
-// -----------------------------------------------------------------------------
-// COMPILADOR: GERA CÓDIGO DE MÁQUINA
-// -----------------------------------------------------------------------------
+/* OPERACOES ARITMETICAS */
+static void emite_operacao(unsigned char code[], int *pos, char op, char t2, int n2, int line) {
+    if (op == '+') {
+        if (t2 == '$') {
+            code[(*pos)++] = 0x05; // addl $num, %eax
+            *(int *)&code[*pos] = n2;
+            *pos += 4;
+        } else {
+            code[(*pos)++] = 0x03; // addl offset(%rbp), %eax
+            code[(*pos)++] = 0x45;
+            code[(*pos)++] = (unsigned char)calcula_offset(t2, n2, line);
+        }
+    } else if (op == '-') {
+        if (t2 == '$') {
+            code[(*pos)++] = 0x2d; // subl $num, %eax
+            *(int *)&code[*pos] = n2;
+            *pos += 4;
+        } else {
+            code[(*pos)++] = 0x2b; // subl offset(%rbp), %eax
+            code[(*pos)++] = 0x45;
+            code[(*pos)++] = (unsigned char)calcula_offset(t2, n2, line);
+        }
+    } else if (op == '*') {
+        if (t2 == '$') {
+            code[(*pos)++] = 0x69; // imull $num, %eax, %eax
+            code[(*pos)++] = 0xc0;
+            *(int *)&code[*pos] = n2;
+            *pos += 4;
+        } else {
+            code[(*pos)++] = 0x0f; // imull offset(%rbp), %eax
+            code[(*pos)++] = 0xaf;
+            code[(*pos)++] = 0x45;
+            code[(*pos)++] = (unsigned char)calcula_offset(t2, n2, line);
+        }
+    } else {
+        error("operador invalido", line);
+    }
+}
 
+/* GERA CODIGO */
 void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
     int pos = 0;
-    char linha[100];
+    int line = 0;
+    char linha[128];
     int func_index = -1;
-    void *enderecos_funcoes[50];
+    void *enderecos_funcoes[MAX_FUNCOES];
 
     while (fgets(linha, sizeof(linha), f) != NULL) {
+        line++;
 
-        // 1. INÍCIO DE FUNÇÃO
+        // ignora linhas em branco
+        if (linha[0] == '\n' || linha[0] == '\r')
+            continue;
+
+        /* INICIO DA FUNCAO */
         if (strncmp(linha, "function", 8) == 0) {
             func_index++;
+            if (func_index >= MAX_FUNCOES)
+                error("limite de funcoes excedido", line);
+
             enderecos_funcoes[func_index] = (void *)&code[pos];
 
+            // prologo da funcao
             code[pos++] = 0x55; // pushq %rbp
             code[pos++] = 0x48; code[pos++] = 0x89; code[pos++] = 0xe5; // movq %rsp, %rbp
             code[pos++] = 0x48; code[pos++] = 0x83; code[pos++] = 0xec; code[pos++] = 0x20; // subq $32, %rsp
-            code[pos++] = 0x89; code[pos++] = 0x7d; code[pos++] = 0xe8; // movl %edi, -24(%rbp)
+            code[pos++] = 0x89; code[pos++] = 0x7d; code[pos++] = 0xe8; // salva p0 em -24(%rbp)
         }
 
-        // 2. RETORNO CONDICIONAL (zret)
+        /* RETORNO CONDICIONAL */
         else if (strncmp(linha, "zret", 4) == 0) {
             char t1, t2;
             int n1, n2;
-            sscanf(linha, "zret %c%d %c%d", &t1, &n1, &t2, &n2);
+            if (sscanf(linha, "zret %c%d %c%d", &t1, &n1, &t2, &n2) != 4)
+                error("comando invalido", line);
 
-            carrega_em_ecx(code, &pos, t1, n1);
+            carrega_em_ecx(code, &pos, t1, n1, line);
 
-            code[pos++] = 0x83; code[pos++] = 0xf9; code[pos++] = 0x00; // cmpl $0, %ecx
-            code[pos++] = 0x75; // jne ...
+            // checa se e zero (cmpl $0, %ecx)
+            code[pos++] = 0x83;
+            code[pos++] = 0xf9;
+            code[pos++] = 0x00;
+
+            // pula o ret se nao for zero (jne)
+            code[pos++] = 0x75;
             int tamanho_bloco = (t2 == '$') ? 7 : 5;
             code[pos++] = (unsigned char)tamanho_bloco;
 
-            carrega_em_eax(code, &pos, t2, n2);
+            // bloco de retorno
+            carrega_em_eax(code, &pos, t2, n2, line);
             code[pos++] = 0xc9; // leave
             code[pos++] = 0xc3; // ret
         }
 
-        // 3. RETORNO INCONDICIONAL (ret)
+        /* RETORNO INCONDICIONAL */
         else if (strncmp(linha, "ret", 3) == 0) {
             char t;
             int n;
-            sscanf(linha + 4, "%c%d", &t, &n);
-            carrega_em_eax(code, &pos, t, n);
+            if (sscanf(linha + 4, "%c%d", &t, &n) != 2)
+                error("comando invalido", line);
+
+            carrega_em_eax(code, &pos, t, n, line);
             code[pos++] = 0xc9; // leave
             code[pos++] = 0xc3; // ret
         }
 
-        // 4. CHAMADA DE FUNÇÃO (call)
+        /* CHAMADA DE FUNCAO */
         else if (strstr(linha, "call") != NULL) {
             int v_dest, func_alvo, arg_num;
             char arg_tipo;
-            sscanf(linha, "v%d = call %d %c%d", &v_dest, &func_alvo, &arg_tipo, &arg_num);
+            if (sscanf(linha, "v%d = call %d %c%d", &v_dest, &func_alvo, &arg_tipo, &arg_num) != 4)
+               error("comando invalido", line);
 
-            carrega_em_edi(code, &pos, arg_tipo, arg_num);
+            if (func_alvo > func_index)
+                error("funcao alvo inexistente", line);
 
-            code[pos++] = 0xe8; // call
+            carrega_em_edi(code, &pos, arg_tipo, arg_num, line); // passa argumento
+
+            // call relativo
+            code[pos++] = 0xe8;
             unsigned char *destino = (unsigned char *)enderecos_funcoes[func_alvo];
             unsigned char *proxima = &code[pos + 4];
             int deslocamento = (int)(destino - proxima);
@@ -121,55 +197,41 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
             *(int *)&code[pos] = deslocamento;
             pos += 4;
 
+            // salva resultado em v_dest
             code[pos++] = 0x89;
             code[pos++] = 0x45;
-            code[pos++] = (unsigned char)calcula_offset('v', v_dest);
+            code[pos++] = (unsigned char)calcula_offset('v', v_dest, line);
         }
 
-        // 5. ATRIBUIÇÃO ARITMÉTICA
+        /* ATRIBUICAO COM OPERACAO */
         else if (strchr(linha, '=') != NULL) {
             int v_dest;
             char t1, t2, op;
             int n1, n2;
 
-            sscanf(linha, "v%d = %c%d %c %c%d", &v_dest, &t1, &n1, &op, &t2, &n2);
-            carrega_em_eax(code, &pos, t1, n1);
+            if (sscanf(linha, "v%d = %c%d %c %c%d", &v_dest, &t1, &n1, &op, &t2, &n2) != 6)
+                error("comando invalido", line);
 
-            if (op == '+') {
-                if (t2 == '$') {
-                    code[pos++] = 0x05;
-                    *(int *)&code[pos] = n2;
-                    pos += 4;
-                } else {
-                    code[pos++] = 0x03; code[pos++] = 0x45;
-                    code[pos++] = (unsigned char)calcula_offset(t2, n2);
-                }
-            } else if (op == '-') {
-                if (t2 == '$') {
-                    code[pos++] = 0x2d;
-                    *(int *)&code[pos] = n2;
-                    pos += 4;
-                } else {
-                    code[pos++] = 0x2b; code[pos++] = 0x45;
-                    code[pos++] = (unsigned char)calcula_offset(t2, n2);
-                }
-            } else if (op == '*') {
-                if (t2 == '$') {
-                    code[pos++] = 0x69; code[pos++] = 0xc0;
-                    *(int *)&code[pos] = n2;
-                    pos += 4;
-                } else {
-                    code[pos++] = 0x0f; code[pos++] = 0xaf; code[pos++] = 0x45;
-                    code[pos++] = (unsigned char)calcula_offset(t2, n2);
-                }
-            }
+            carrega_em_eax(code, &pos, t1, n1, line);
+            emite_operacao(code, &pos, op, t2, n2, line);
 
+            // salva resultado
             code[pos++] = 0x89;
             code[pos++] = 0x45;
-            code[pos++] = (unsigned char)calcula_offset('v', v_dest);
+            code[pos++] = (unsigned char)calcula_offset('v', v_dest, line);
+        }
+
+        /* FIM DA FUNCAO */
+        else if (strncmp(linha, "end", 3) == 0) {
+            // delimitador
+        }
+
+        else {
+            error("comando desconhecido", line);
         }
     }
 
+    // retorna a ultima funcao gerada
     if (func_index >= 0) {
         *entry = (funcp)enderecos_funcoes[func_index];
     } else {
@@ -177,43 +239,3 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
     }
 }
 
-// -----------------------------------------------------------------------------
-// PROGRAMA PRINCIPAL (MAIN COM TESTES)
-// -----------------------------------------------------------------------------
-
-int main() {
-    FILE *f = fopen("programa.txt", "r");
-    if (!f) {
-        perror("Erro ao abrir programa.txt");
-        return 1;
-    }
-
-    // Aloca página de memória com permissão de escrita e execução
-    unsigned char *code = mmap(NULL, 4096, PROT_READ | PROT_WRITE | PROT_EXEC,
-                               MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    if (code == MAP_FAILED) {
-        perror("Erro no mmap");
-        return 1;
-    }
-
-    funcp entry = NULL;
-    gera_codigo(f, code, &entry);
-    fclose(f);
-
-    printf("=== TESTES DE EXECUCAO ===\n");
-
-    // Teste 1: entrada 0 -> deve cair no 'zret' e retornar 99
-    int r1 = entry(0);
-    printf("Entrada: 0 | Esperado: 99 | Retorno: %d %s\n", r1, (r1 == 99 ? "[OK]" : "[ERRO]"));
-
-    // Teste 2: entrada 10 -> (10 * 2) + 5 = 25
-    int r2 = entry(10);
-    printf("Entrada: 10 | Esperado: 25 | Retorno: %d %s\n", r2, (r2 == 25 ? "[OK]" : "[ERRO]"));
-
-    // Teste 3: entrada 3 -> (3 * 2) + 5 = 11
-    int r3 = entry(3);
-    printf("Entrada: 3 | Esperado: 11 | Retorno: %d %s\n", r3, (r3 == 11 ? "[OK]" : "[ERRO]"));
-
-    munmap(code, 4096);
-    return 0;
-}
